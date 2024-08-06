@@ -151,7 +151,12 @@ def resolve_dependencies(
 
     # requirements
     for req_file in requirement_files:
-        deps = dependencies.get_dependencies_from_requirements(requirements_file=req_file)
+        deps, global_options = dependencies.get_dependencies_from_requirements(
+            requirements_file=req_file
+        )
+        new_index_urls = global_options["index-url"] + global_options["extra-index-url"]
+        for new_index in new_index_urls:
+            index_urls = (*index_urls, *tuple(new_index))
         for extra_data in dependencies.get_extra_data_from_requirements(requirements_file=req_file):
             index_urls = (*index_urls, *tuple(extra_data.get("extra_index_urls") or []))
             index_urls = (*index_urls, *tuple(extra_data.get("index_url") or []))

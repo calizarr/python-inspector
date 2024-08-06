@@ -9,6 +9,8 @@
 # See https://aboutcode.org for more information about nexB OSS projects.
 #
 
+import tempfile
+
 from packageurl import PackageURL
 from packvers.requirements import Requirement
 from pip_requirements_parser import InstallRequirement
@@ -24,13 +26,73 @@ Utilities to resolve dependencies .
 TRACE = False
 
 
+def parse_requirements_flags(line: str):
+    """
+    Input: line from a requirements.txt file
+    Returns: The relevant options flag and the arguments to said flag
+    """
+    flag = None
+    args = None
+    if line.startswith("-"):
+        line.replace("-", "", 1)
+        line_lst = line.split()
+        flag = line_lst[0]
+        args = line_lst[1:]
+    elif line.startswith("--"):
+        line.replace("--", "", 1)
+        line_lst = line.split()
+        flag = line_lst[0]
+        args = line_lst[1]
+    return flag, args
+
+
+def parse_global_options(requirements_file: str):
+    """
+    Input: requirements.txt file path
+    Returns: dictionary of global options, new requirements file without option flags
+    """
+    translate_short_flags = {
+        "i": "index-url",
+        "c": "constraint",
+        "r": "requirement",
+        "e": "editable",
+        "f": "find-links",
+    }
+    global_options = {}
+    with open(requirements_file, "r") as req_file:
+        lines = req_file.readlines()
+        simple_req_file_index = 0
+        for index in range(len(lines)):
+            line = lines[index]
+            if line.startswith("-") or line.startswith("--"):
+                flag, args = parse_requirements_flags(line)
+                if flag is not None:
+                    flag = (
+                        translate_short_flags[flag] if flag not in translate_short_flags else flag
+                    )
+                if flag not in global_options:
+                    global_options[flag] = [args]
+                else:
+                    global_options[flag] += [args]
+            else:
+                simple_req_file_index = index
+                break
+    simple_req_file = lines[simple_req_file_index:]
+    req_file_obj = tempfile.NamedTemporaryFile(delete=False)
+    write_req = req_file_obj.open()
+    write_req.writelines(simple_req_file)
+    write_req.close()
+    return global_options, req_file_obj
+
+
 def get_dependencies_from_requirements(requirements_file="requirements.txt"):
     """
-    Yield DependentPackage for each requirement in a `requirement`
+    Yield DependentPackage and global options for each requirement in a `requirement`
     file.
     """
+    global_options, simple_req = parse_global_options(requirements_file)
     dependent_packages, _ = get_requirements_txt_dependencies(
-        location=requirements_file, include_nested=True
+        location=simple_req.name, include_nested=True
     )
     for dependent_package in dependent_packages:
         if TRACE:
@@ -38,7 +100,7 @@ def get_dependencies_from_requirements(requirements_file="requirements.txt"):
                 "dependent_package.extracted_requirement:",
                 dependent_package.extracted_requirement,
             )
-        yield dependent_package
+        yield dependent_package, global_options
 
 
 def get_extra_data_from_requirements(requirements_file="requirements.txt"):
