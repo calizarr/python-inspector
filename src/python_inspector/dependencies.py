@@ -70,18 +70,17 @@ def parse_global_options(requirements_file: str):
                     flag = (
                         translate_short_flags[flag] if flag not in translate_short_flags else flag
                     )
-                if flag not in global_options:
+                if flag not in global_options and flag is not None:
                     global_options[flag] = [args]
                 else:
                     global_options[flag] += [args]
             else:
                 simple_req_file_index = index
                 break
-    simple_req_file = lines[simple_req_file_index:]
-    req_file_obj = tempfile.NamedTemporaryFile(delete=False)
-    write_req = req_file_obj.open()
-    write_req.writelines(simple_req_file)
-    write_req.close()
+    simple_req_file = [x.encode() for x in lines[simple_req_file_index:]]
+    req_file_obj = tempfile.NamedTemporaryFile(delete=False, prefix="requirements", suffix=".txt")
+    req_file_obj.writelines(simple_req_file)
+    req_file_obj.close()
     return global_options, req_file_obj
 
 
