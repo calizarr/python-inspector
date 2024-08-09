@@ -9,6 +9,7 @@
 # See https://aboutcode.org for more information about nexB OSS projects.
 #
 
+import pdb
 import os
 from netrc import netrc
 from typing import Dict
@@ -151,12 +152,19 @@ def resolve_dependencies(
 
     # requirements
     for req_file in requirement_files:
-        deps, global_options = dependencies.get_dependencies_from_requirements(
-            requirements_file=req_file
+        global_options, simple_req = dependencies.parse_global_options(req_file)
+        deps = dependencies.get_dependencies_from_requirements(
+            requirements_file=simple_req.name
         )
-        new_index_urls = global_options["index-url"] + global_options["extra-index-url"]
-        for new_index in new_index_urls:
-            index_urls = (*index_urls, *tuple(new_index))
+        if global_options != {}:
+            new_index_urls = []
+            if "index-url" in global_options:
+                new_index_urls += global_options["index-url"]
+            if "extra-index-url" in global_options:
+                new_index_urls += global_options["extra-index-url"]
+            if len(new_index_urls) != 0:
+                for new_index in new_index_urls:
+                    index_urls = (*index_urls, *tuple(new_index))
         for extra_data in dependencies.get_extra_data_from_requirements(requirements_file=req_file):
             index_urls = (*index_urls, *tuple(extra_data.get("extra_index_urls") or []))
             index_urls = (*index_urls, *tuple(extra_data.get("index_url") or []))

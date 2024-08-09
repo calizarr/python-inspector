@@ -10,6 +10,7 @@
 #
 
 import tempfile
+import pdb
 
 from packageurl import PackageURL
 from packvers.requirements import Requirement
@@ -65,12 +66,13 @@ def parse_global_options(requirements_file: str):
         for index in range(len(lines)):
             line = lines[index]
             if line.startswith("-") or line.startswith("--"):
+                new_flag = None
                 flag, args = parse_requirements_flags(line)
                 if flag is not None:
-                    flag = (
+                    new_flag = (
                         translate_short_flags[flag] if flag not in translate_short_flags else flag
                     )
-                if flag not in global_options and flag is not None:
+                if new_flag not in global_options and new_flag is not None:
                     global_options[flag] = [args]
                 else:
                     global_options[flag] += [args]
@@ -78,7 +80,7 @@ def parse_global_options(requirements_file: str):
                 simple_req_file_index = index
                 break
     simple_req_file = [x.encode() for x in lines[simple_req_file_index:]]
-    req_file_obj = tempfile.NamedTemporaryFile(delete=False, prefix="requirements", suffix=".txt")
+    req_file_obj = tempfile.NamedTemporaryFile(delete=False)
     req_file_obj.writelines(simple_req_file)
     req_file_obj.close()
     return global_options, req_file_obj
@@ -89,9 +91,8 @@ def get_dependencies_from_requirements(requirements_file="requirements.txt"):
     Yield DependentPackage and global options for each requirement in a `requirement`
     file.
     """
-    global_options, simple_req = parse_global_options(requirements_file)
     dependent_packages, _ = get_requirements_txt_dependencies(
-        location=simple_req.name, include_nested=True
+        location=requirements_file, include_nested=True
     )
     for dependent_package in dependent_packages:
         if TRACE:
@@ -99,7 +100,7 @@ def get_dependencies_from_requirements(requirements_file="requirements.txt"):
                 "dependent_package.extracted_requirement:",
                 dependent_package.extracted_requirement,
             )
-        yield dependent_package, global_options
+        yield dependent_package
 
 
 def get_extra_data_from_requirements(requirements_file="requirements.txt"):
